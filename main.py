@@ -21,6 +21,7 @@ from extract_contract import extract_contract_data
 from intrusion_scanner import run_all_scrapers
 from scanner_acheteur import run_acheteur_scan
 from scanner_tvmaze import run_tvmaze_scan
+from scanner_tmdb import run_tmdb_scan, find_best_match, get_watch_providers, TMDB_API_KEY
 
 app = FastAPI(
     title="Rights Monitor API",
@@ -136,6 +137,7 @@ async def run_scrapers(background_tasks: BackgroundTasks, vue: Literal["vendeur"
         if vue in ("vendeur", "all"):
             await run_all_scrapers(youtube_api_key=YOUTUBE_API_KEY)
             await run_tvmaze_scan()
+            await run_tmdb_scan()
         if vue in ("acheteur", "all"):
             await run_acheteur_scan(youtube_api_key=YOUTUBE_API_KEY)
 
@@ -200,6 +202,27 @@ def export_violations_csv(statut: str = None, severite: str = None):
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
+
+@app.get("/tmdb/search")
+async def tmdb_search(q: str, territoire: str = "FR"):
+    """Teste la disponibilité SVOD d'un titre via TMDB/JustWatch."""
+    if not TMDB_API_KEY:
+        raise HTTPException(500, "TMDB_API_KEY manquante")
+    tmdb_id, media_type = await find_best_match(q)
+    if not tmdb_id:
+        return {"found": False, "query": q}
+    providers = await get_watch_providers(tmdb_id, media_type, territoire)
+    return {
+        "found": True,
+        "query": q,
+        "tmdb_id": tmdb_id,
+        "media_type": media_type,
+        "territoire": territoire,
+        "svod": [p["provider_name"] for p in providers.get("flatrate", [])],
+        "avod": [p["provider_name"] for p in providers.get("free", [])],
+        "lien_justwatch": providers.get("link"),
+    }
+
 
 @app.get("/tvmaze/search")
 async def tvmaze_search(q: str):
