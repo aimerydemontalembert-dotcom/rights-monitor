@@ -20,6 +20,7 @@ import db
 from extract_contract import extract_contract_data
 from intrusion_scanner import run_all_scrapers
 from scanner_acheteur import run_acheteur_scan
+from scanner_tvmaze import run_tvmaze_scan
 
 app = FastAPI(
     title="Rights Monitor API",
@@ -134,6 +135,7 @@ async def run_scrapers(background_tasks: BackgroundTasks, vue: Literal["vendeur"
     async def do_scan():
         if vue in ("vendeur", "all"):
             await run_all_scrapers(youtube_api_key=YOUTUBE_API_KEY)
+            await run_tvmaze_scan()
         if vue in ("acheteur", "all"):
             await run_acheteur_scan(youtube_api_key=YOUTUBE_API_KEY)
 
@@ -198,6 +200,24 @@ def export_violations_csv(statut: str = None, severite: str = None):
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
+
+@app.get("/tvmaze/search")
+async def tvmaze_search(q: str):
+    """Teste la recherche TVmaze pour un titre donné."""
+    from scanner_tvmaze import search_show, get_schedule_fr
+    show = await search_show(q)
+    if not show:
+        return {"found": False, "query": q}
+    return {
+        "found": True,
+        "id": show["id"],
+        "titre": show["name"],
+        "reseau": show.get("network", {}).get("name") if show.get("network") else None,
+        "pays": show.get("network", {}).get("country", {}).get("code") if show.get("network") else None,
+        "web_channel": show.get("webChannel", {}).get("name") if show.get("webChannel") else None,
+        "url": show.get("url"),
+    }
+
 
 @app.on_event("startup")
 def startup():
