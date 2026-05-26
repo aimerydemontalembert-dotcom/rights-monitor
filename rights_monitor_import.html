@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rights Monitor — Import Contrat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3248;
+    --accent: #6c63ff;
+    --accent2: #4ecdc4;
+    --danger: #ff4757;
+    --warn: #ffa502;
+    --success: #2ed573;
+    --text: #e8eaf0;
+    --muted: #8b8fa8;
+    --radius: 12px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+
+  header { width: 100%; max-width: 860px; display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
+  .logo { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+  h1 { font-size: 1.4rem; font-weight: 700; }
+  h1 span { color: var(--accent); }
+  .badge-api { background: var(--surface2); border: 1px solid var(--border); color: var(--accent2); font-size: .7rem; padding: .2rem .6rem; border-radius: 20px; margin-left: auto; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 860px; margin-bottom: 1.5rem; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: .5rem; }
+  .card h2 .step-num { background: var(--accent); color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75rem; flex-shrink: 0; }
+
+  /* Drop zone */
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 3rem 2rem; text-align: center; cursor: pointer; transition: all .2s; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(108,99,255,.06); }
+  .drop-zone .icon { font-size: 3rem; margin-bottom: 1rem; opacity: .5; }
+  .drop-zone p { color: var(--muted); font-size: .9rem; }
+  .drop-zone p strong { color: var(--accent); }
+  .drop-zone input[type=file] { display: none; }
+  .file-selected { background: rgba(108,99,255,.08); border-color: var(--accent); }
+  .file-info { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--surface2); border-radius: 8px; margin-top: 1rem; }
+  .file-info .fi-icon { font-size: 2rem; }
+  .file-info .fi-name { font-weight: 600; font-size: .9rem; }
+  .file-info .fi-size { color: var(--muted); font-size: .8rem; }
+
+  /* Steps */
+  .steps { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .4rem; }
+  .step-dot { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: .8rem; transition: all .3s; position: relative; }
+  .step-dot.active { border-color: var(--accent); background: rgba(108,99,255,.15); color: var(--accent); }
+  .step-dot.done { border-color: var(--success); background: rgba(46,213,115,.15); color: var(--success); }
+  .step-dot.done::after { content: '✓'; }
+  .step-label { font-size: .7rem; color: var(--muted); text-align: center; }
+  .step.active .step-label { color: var(--accent); }
+  .step.done .step-label { color: var(--success); }
+  .step-connector { flex: none; width: 40px; height: 2px; background: var(--border); margin-top: 15px; transition: background .3s; }
+  .step-connector.done { background: var(--success); }
+
+  /* Progress log */
+  .progress-log { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: 'Cascadia Code', 'Courier New', monospace; font-size: .8rem; height: 140px; overflow-y: auto; }
+  .log-line { padding: .15rem 0; color: var(--muted); }
+  .log-line.success { color: var(--success); }
+  .log-line.error { color: var(--danger); }
+  .log-line.info { color: var(--accent2); }
+
+  /* JSON preview */
+  .json-preview { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; font-family: monospace; font-size: .78rem; max-height: 320px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6; }
+  .json-key { color: #7ec8e3; }
+  .json-string { color: #a8d8a8; }
+  .json-number { color: #f4c06f; }
+  .json-bool { color: var(--accent); }
+
+  /* Blocs droits */
+  .blocs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .bloc-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
+  .bloc-card .bc-type { font-size: .7rem; font-weight: 700; padding: .2rem .6rem; border-radius: 20px; display: inline-block; margin-bottom: .5rem; }
+  .bc-type.exclusif { background: rgba(108,99,255,.2); color: var(--accent); border: 1px solid var(--accent); }
+  .bc-type.non-exclusif { background: rgba(78,205,196,.15); color: var(--accent2); border: 1px solid var(--accent2); }
+  .bc-type.blocage { background: rgba(255,71,87,.15); color: var(--danger); border: 1px solid var(--danger); }
+  .bc-title { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+  .bc-meta { color: var(--muted); font-size: .78rem; line-height: 1.8; }
+  .bc-meta span { color: var(--text); }
+
+  /* Buttons */
+  .btn { border: none; border-radius: 8px; padding: .75rem 1.5rem; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #5a52d5; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-success { background: var(--success); color: #0f2a1e; }
+  .btn-success:hover { background: #25c267; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-row { display: flex; gap: .75rem; margin-top: 1.5rem; }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; margin-right: .5rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .alert-box { border-radius: 8px; padding: .8rem 1rem; font-size: .85rem; margin-top: 1rem; }
+  .alert-success { background: rgba(46,213,115,.1); border: 1px solid rgba(46,213,115,.3); color: var(--success); }
+  .alert-error { background: rgba(255,71,87,.1); border: 1px solid rgba(255,71,87,.3); color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚖️</div>
+  <div>
+    <h1>Rights <span>Monitor</span></h1>
+    <div style="color:var(--muted);font-size:.78rem">Extraction intelligente de contrats</div>
+  </div>
+  <div class="badge-api">Claude AI · Extraction</div>
+</header>
+
+<!-- Étape 1 : Upload -->
+<div class="card" id="card-upload">
+  <h2><span class="step-num">1</span>Charger le Deal Memo PDF</h2>
+
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon">📄</div>
+    <p>Glissez un fichier PDF ici ou <strong>cliquez pour parcourir</strong></p>
+    <p style="margin-top:.4rem;font-size:.75rem">Deal Memo DocuSign · Contrat de licence · Convention</p>
+    <input type="file" id="file-input" accept=".pdf" onchange="onFileSelected(this)">
+  </div>
+
+  <div id="file-info-box" style="display:none" class="file-info">
+    <div class="fi-icon">📄</div>
+    <div>
+      <div class="fi-name" id="fi-name"></div>
+      <div class="fi-size" id="fi-size"></div>
+    </div>
+    <button class="btn btn-secondary" style="margin-left:auto;padding:.4rem .8rem;font-size:.8rem" onclick="resetFile()">✕</button>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-extract" onclick="startExtraction()" disabled>
+      Analyser avec Claude AI
+    </button>
+  </div>
+</div>
+
+<!-- Étape 2-4 : Progression -->
+<div class="card" id="card-progress" style="display:none">
+  <h2><span class="step-num">2</span>Extraction en cours…</h2>
+
+  <div class="steps" id="steps-bar">
+    <div class="step" id="step-0">
+      <div class="step-dot active" id="dot-0">1</div>
+      <div class="step-label">Lecture PDF</div>
+    </div>
+    <div class="step-connector" id="conn-0"></div>
+    <div class="step" id="step-1">
+      <div class="step-dot" id="dot-1">2</div>
+      <div class="step-label">Envoi IA</div>
+    </div>
+    <div class="step-connector" id="conn-1"></div>
+    <div class="step" id="step-2">
+      <div class="step-dot" id="dot-2">3</div>
+      <div class="step-label">Analyse Claude</div>
+    </div>
+    <div class="step-connector" id="conn-2"></div>
+    <div class="step" id="step-3">
+      <div class="step-dot" id="dot-3">4</div>
+      <div class="step-label">Vérification</div>
+    </div>
+  </div>
+
+  <div class="progress-log" id="progress-log"></div>
+</div>
+
+<!-- Étape 3 : Résultat JSON -->
+<div class="card" id="card-result" style="display:none">
+  <h2><span class="step-num">3</span>Contrat extrait — Vérification</h2>
+
+  <div id="result-meta" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem"></div>
+
+  <div class="blocs-grid" id="blocs-grid"></div>
+
+  <details style="margin-top:1.2rem">
+    <summary style="cursor:pointer;color:var(--muted);font-size:.85rem;margin-bottom:.5rem">Voir le JSON brut</summary>
+    <div class="json-preview" id="json-preview"></div>
+  </details>
+
+  <div class="btn-row">
+    <button class="btn btn-success" onclick="importToDatabase()">
+      ✅ Importer en base + créer scrapers
+    </button>
+    <button class="btn btn-secondary" onclick="resetAll()">↩ Recommencer</button>
+  </div>
+
+  <div id="import-result" style="display:none"></div>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+let selectedFile = null;
+let extractedData = null;
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.pdf')) setFile(file);
+});
+
+function onFileSelected(input) {
+  if (input.files[0]) setFile(input.files[0]);
+}
+
+function setFile(file) {
+  selectedFile = file;
+  document.getElementById('fi-name').textContent = file.name;
+  document.getElementById('fi-size').textContent = (file.size / 1024).toFixed(0) + ' Ko';
+  document.getElementById('file-info-box').style.display = 'flex';
+  dz.style.display = 'none';
+  document.getElementById('btn-extract').disabled = false;
+}
+
+function resetFile() {
+  selectedFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-info-box').style.display = 'none';
+  dz.style.display = 'block';
+  document.getElementById('btn-extract').disabled = true;
+}
+
+// ── Extraction ────────────────────────────────────────────────────────────────
+
+function log(msg, type = '') {
+  const el = document.getElementById('progress-log');
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString('fr-FR')}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStep(idx, state) {
+  const dot = document.getElementById(`dot-${idx}`);
+  const step = document.getElementById(`step-${idx}`);
+  dot.className = `step-dot ${state}`;
+  step.className = `step ${state}`;
+  if (state === 'done') {
+    dot.textContent = '';
+    if (idx < 3) {
+      document.getElementById(`conn-${idx}`).classList.add('done');
+    }
+  } else if (state !== 'active') {
+    dot.textContent = idx + 1;
+  }
+}
+
+async function startExtraction() {
+  if (!selectedFile) return;
+
+  document.getElementById('card-upload').style.display = 'none';
+  document.getElementById('card-progress').style.display = 'block';
+  document.getElementById('progress-log').innerHTML = '';
+
+  const btn = document.getElementById('btn-extract');
+  btn.disabled = true;
+
+  try {
+    // Étape 1 : Lecture PDF
+    setStep(0, 'active');
+    log('Lecture du fichier PDF…', 'info');
+    await sleep(600);
+    setStep(0, 'done');
+    log(`PDF chargé : ${selectedFile.name} (${(selectedFile.size/1024).toFixed(0)} Ko)`, 'success');
+
+    // Étape 2 : Envoi IA
+    setStep(1, 'active');
+    log('Envoi vers l\'API Rights Monitor…', 'info');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    let data;
+    try {
+      const resp = await fetch(`${API_BASE}/contrats/import`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      setStep(1, 'done');
+
+      // Étape 3 : Analyse
+      setStep(2, 'active');
+      log('Analyse Claude AI en cours…', 'info');
+      await sleep(400);
+
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const result = await resp.json();
+      data = result.data;
+      extractedData = data;
+
+      setStep(2, 'done');
+      log(`Extraction réussie : ${result.programme_count} programme(s)`, 'success');
+
+    } catch (apiErr) {
+      // API non disponible → mode démo avec données simulées
+      log('API non disponible — chargement données démo', 'info');
+      setStep(1, 'done');
+      setStep(2, 'active');
+      await sleep(1200);
+      data = getDemoData(selectedFile.name);
+      extractedData = data;
+      setStep(2, 'done');
+      log('Données démo chargées (connectez l\'API pour extraction réelle)', 'success');
+    }
+
+    // Étape 4 : Vérification
+    setStep(3, 'active');
+    log('Vérification de la structure JSON…', 'info');
+    await sleep(400);
+
+    const nb_blocs = data.blocs_droits?.length || 0;
+    const nb_blocages = data.blocages?.length || 0;
+    log(`${nb_blocs} bloc(s) de droits · ${nb_blocages} blocage(s) identifié(s)`, 'success');
+    setStep(3, 'done');
+
+    await sleep(300);
+    showResult(data);
+
+  } catch (err) {
+    log(`Erreur : ${err.message}`, 'error');
+  }
+}
+
+// ── Affichage résultat ────────────────────────────────────────────────────────
+
+function showResult(data) {
+  document.getElementById('card-progress').style.display = 'none';
+  document.getElementById('card-result').style.display = 'block';
+
+  // Meta badges
+  const meta = document.getElementById('result-meta');
+  meta.innerHTML = `
+    <span style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.4rem .9rem;font-size:.8rem">
+      🔑 Deal <strong>${data.deal_id}</strong>
+    </span>
+    <span style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.4rem .9rem;font-size:.8rem">
+      📤 ${data.concedant}
+    </span>
+    <span style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.4rem .9rem;font-size:.8rem">
+      📥 ${data.licencie}
+    </span>
+    <span style="background:rgba(108,99,255,.1);border:1px solid var(--accent);border-radius:8px;padding:.4rem .9rem;font-size:.8rem;color:var(--accent)">
+      ${data.blocs_droits?.length || 0} blocs droits
+    </span>
+  `;
+
+  // Blocs
+  const grid = document.getElementById('blocs-grid');
+  grid.innerHTML = '';
+  (data.blocs_droits || []).forEach(b => {
+    const card = document.createElement('div');
+    card.className = 'bloc-card';
+    card.innerHTML = `
+      <span class="bc-type ${b.type}">${b.type.toUpperCase()}</span>
+      <div class="bc-title">${b.programme}</div>
+      <div class="bc-meta">
+        📺 Média : <span>${b.media}</span><br>
+        🌍 Territoires : <span>${(b.territoires || []).join(', ')}</span><br>
+        📡 Chaînes : <span>${(b.chaines || ['—']).join(', ')}</span><br>
+        📅 <span>${b.date_debut}</span> → <span>${b.date_fin}</span>
+        ${b.diffusions_max ? `<br>📊 Max diff. : <span>${b.diffusions_max}</span>` : ''}
+        ${(b.restrictions || []).length ? `<br>⚠️ <span style="color:var(--warn)">${b.restrictions[0]}</span>` : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // JSON colorisé
+  document.getElementById('json-preview').innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+}
+
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) return `<span class="json-key">${match}</span>`;
+      return `<span class="json-string">${match}</span>`;
+    }
+    if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+    return `<span class="json-number">${match}</span>`;
+  });
+}
+
+// ── Import en base ────────────────────────────────────────────────────────────
+
+async function importToDatabase() {
+  if (!extractedData) return;
+  const box = document.getElementById('import-result');
+  box.style.display = 'block';
+  box.innerHTML = '<div class="alert-box" style="background:var(--surface2)"><span class="spinner"></span>Import en cours…</div>';
+
+  try {
+    const resp = await fetch(`${API_BASE}/contrats/import/json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(extractedData),
+    });
+    if (!resp.ok) throw new Error(`${resp.status}`);
+    const result = await resp.json();
+    box.innerHTML = `
+      <div class="alert-box alert-success">
+        ✅ Contrat ${result.deal_id} importé avec succès · ID #${result.contrat_id} ·
+        <a href="rights_monitor_v1.html" style="color:var(--success)">Voir les violations →</a>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="alert-box alert-error">⚠️ Import simulé (API hors ligne) — en production, le contrat serait enregistré en base.</div>`;
+  }
+}
+
+function resetAll() {
+  document.getElementById('card-result').style.display = 'none';
+  document.getElementById('card-progress').style.display = 'none';
+  document.getElementById('card-upload').style.display = 'block';
+  resetFile();
+  extractedData = null;
+  [0,1,2,3].forEach(i => setStep(i, ''));
+  document.getElementById('import-result').style.display = 'none';
+}
+
+// ── Données démo ──────────────────────────────────────────────────────────────
+
+function getDemoData(filename) {
+  if (filename.toLowerCase().includes('38523') || filename.toLowerCase().includes('scab')) {
+    return {
+      deal_id: "38523", concedant: "MEDIAWAN RIGHTS", licencie: "MEDIAWAN LUX",
+      blocs_droits: [{
+        programme: "SCAB VENDOR", type: "exclusif", media: "SVOD",
+        territoires: ["France", "Dom-Tom"], chaines: ["EXPLORE"],
+        date_debut: "2024-12-01", date_fin: "2026-11-30",
+        diffusions_max: null, restrictions: ["Holdback AVOD/FVOD 24 mois", "Holdback Free TV 12 mois"]
+      }],
+      blocages: [
+        { media: ["AVOD", "FVOD"], territoires: ["France", "Dom-Tom"], date_debut: "2024-12-01", date_fin: "2026-11-30" },
+        { media: ["Free-TV"], territoires: ["France", "Dom-Tom"], date_debut: "2024-12-01", date_fin: "2025-11-30" }
+      ]
+    };
+  }
+  if (filename.toLowerCase().includes('42222') || filename.toLowerCase().includes('femmes')) {
+    return {
+      deal_id: "42222", concedant: "MEDIAWAN RIGHTS", licencie: "RTL9",
+      blocs_droits: [
+        { programme: "FEMMES DE LOI S1", type: "exclusif", media: "Pay-TV", territoires: ["France", "Dom-Tom", "Benelux", "CH"], chaines: ["RTL9"], date_debut: "2024-01-01", date_fin: "2025-12-31", diffusions_max: 2, restrictions: ["Case horaire 09h-14h", "Catch-up 30 jours"] },
+        { programme: "FEMMES DE LOI S2", type: "exclusif", media: "Pay-TV", territoires: ["France", "Dom-Tom", "Benelux", "CH"], chaines: ["RTL9"], date_debut: "2024-01-01", date_fin: "2025-12-31", diffusions_max: 2, restrictions: ["Case horaire 09h-14h"] }
+      ],
+      blocages: []
+    };
+  }
+  return {
+    deal_id: "DEMO-001", concedant: "VENDEUR DEMO", licencie: "MEDIAWAN LUX",
+    blocs_droits: [{ programme: "PROGRAMME DEMO", type: "exclusif", media: "SVOD", territoires: ["France"], chaines: ["EXPLORE"], date_debut: "2025-01-01", date_fin: "2026-12-31", diffusions_max: null, restrictions: [] }],
+    blocages: []
+  };
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+</script>
+</body>
+</html>

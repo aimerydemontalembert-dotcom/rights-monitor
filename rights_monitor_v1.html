@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rights Monitor — Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3248;
+    --accent: #6c63ff;
+    --accent2: #4ecdc4;
+    --danger: #ff4757;
+    --warn: #ffa502;
+    --success: #2ed573;
+    --text: #e8eaf0;
+    --muted: #8b8fa8;
+    --radius: 12px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; height: 56px; gap: 1rem; position: sticky; top: 0; z-index: 100; }
+  .nav-logo { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1rem; }
+  .nav-logo .ico { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .nav-logo span { color: var(--accent); }
+  .nav-sep { flex: 1; }
+  .vue-toggle { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .vue-btn { padding: .4rem 1.1rem; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--muted); transition: all .2s; }
+  .vue-btn.active { background: var(--accent); color: white; }
+  .btn-scan { background: var(--accent); border: none; color: white; border-radius: 8px; padding: .4rem 1rem; font-size: .82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: .4rem; }
+  .btn-scan:hover { background: #5a52d5; }
+  .btn-export { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .4rem 1rem; font-size: .82rem; cursor: pointer; }
+  .btn-export:hover { border-color: var(--accent2); }
+  .nav-user { font-size: .78rem; color: var(--muted); }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 56px); }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 1.2rem; }
+  .main { padding: 1.5rem; overflow-y: auto; }
+
+  /* KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.2rem; }
+  .kpi-val { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .kpi-label { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+  .kpi-critique .kpi-val { color: var(--danger); }
+  .kpi-haute .kpi-val { color: var(--warn); }
+  .kpi-moyenne .kpi-val { color: var(--accent2); }
+  .kpi-total .kpi-val { color: var(--accent); }
+  .kpi-delta { font-size: .7rem; margin-top: .3rem; }
+  .kpi-delta.up { color: var(--danger); }
+  .kpi-delta.down { color: var(--success); }
+
+  /* SIDEBAR filters */
+  .filter-section { margin-bottom: 1.5rem; }
+  .filter-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .6rem; }
+  .filter-option { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; border-radius: 6px; cursor: pointer; font-size: .82rem; transition: background .15s; }
+  .filter-option:hover { background: var(--surface2); }
+  .filter-option input { accent-color: var(--accent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-critique { background: var(--danger); }
+  .dot-haute { background: var(--warn); }
+  .dot-moyenne { background: var(--accent2); }
+  .dot-all { background: var(--accent); }
+  .filter-count { margin-left: auto; font-size: .72rem; color: var(--muted); }
+
+  /* VIOLATIONS LIST */
+  .section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .section-title { font-size: 1rem; font-weight: 700; }
+  .badge { font-size: .72rem; padding: .2rem .6rem; border-radius: 20px; font-weight: 600; }
+  .badge-critique { background: rgba(255,71,87,.15); color: var(--danger); border: 1px solid rgba(255,71,87,.3); }
+  .badge-haute { background: rgba(255,165,2,.15); color: var(--warn); border: 1px solid rgba(255,165,2,.3); }
+  .badge-moyenne { background: rgba(78,205,196,.15); color: var(--accent2); border: 1px solid rgba(78,205,196,.3); }
+
+  .search-box { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .4rem .8rem; color: var(--text); font-size: .85rem; outline: none; }
+  .search-box:focus { border-color: var(--accent); }
+
+  .violation-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem; margin-bottom: .8rem; transition: border-color .2s, transform .1s; cursor: pointer; }
+  .violation-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .violation-card.critique { border-left: 3px solid var(--danger); }
+  .violation-card.haute { border-left: 3px solid var(--warn); }
+  .violation-card.moyenne { border-left: 3px solid var(--accent2); }
+  .vc-header { display: flex; align-items: flex-start; gap: .8rem; margin-bottom: .6rem; }
+  .vc-title { font-weight: 700; font-size: .9rem; flex: 1; }
+  .vc-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .6rem; }
+  .vc-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: .18rem .55rem; font-size: .75rem; color: var(--muted); }
+  .vc-chip.highlight { color: var(--text); border-color: var(--border); }
+  .vc-desc { font-size: .82rem; color: var(--muted); line-height: 1.5; }
+  .vc-actions { display: flex; gap: .5rem; margin-top: .8rem; }
+  .vc-btn { border: 1px solid var(--border); background: none; color: var(--muted); border-radius: 6px; padding: .25rem .7rem; font-size: .75rem; cursor: pointer; transition: all .15s; }
+  .vc-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .vc-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .vc-time { font-size: .72rem; color: var(--muted); margin-left: auto; }
+
+  /* Source icons */
+  .src-icon { font-size: .75rem; padding: .15rem .5rem; border-radius: 4px; font-weight: 600; }
+  .src-jw { background: rgba(0,174,239,.15); color: #00aeef; }
+  .src-yt { background: rgba(255,0,0,.12); color: #ff4040; }
+  .src-epg { background: rgba(108,99,255,.15); color: var(--accent); }
+  .src-rtl9 { background: rgba(255,165,2,.12); color: var(--warn); }
+
+  /* Vue label */
+  .vue-label { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: .2rem .7rem; font-size: .72rem; margin-bottom: 1rem; display: inline-flex; align-items: center; gap: .4rem; }
+  .vue-label.acheteur { color: var(--accent2); border-color: var(--accent2); }
+  .vue-label.vendeur { color: var(--accent); border-color: var(--accent); }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; opacity: .4; }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .last-scan { font-size: .72rem; color: var(--muted); margin-left: auto; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="ico">⚖️</div>
+    Rights <span>Monitor</span>
+  </div>
+  <div class="nav-sep"></div>
+  <div class="vue-toggle">
+    <button class="vue-btn active" id="btn-vendeur" onclick="setVue('vendeur')">📤 Distributeur</button>
+    <button class="vue-btn" id="btn-acheteur" onclick="setVue('acheteur')">📥 Acheteur</button>
+  </div>
+  <button class="btn-scan" onclick="runScan()"><span id="scan-ico">🔍</span> Scanner</button>
+  <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+  <a href="rights_monitor_import.html" style="text-decoration:none">
+    <button class="btn-export">➕ Import contrat</button>
+  </a>
+  <div class="nav-user" id="last-scan-label">Dernier scan : —</div>
+</nav>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="filter-section">
+      <div class="filter-label">Sévérité</div>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-all"> <span class="dot dot-all"></span> Toutes <span class="filter-count" id="cnt-all">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-critique"> <span class="dot dot-critique"></span> Critique <span class="filter-count" id="cnt-critique">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-haute"> <span class="dot dot-haute"></span> Haute <span class="filter-count" id="cnt-haute">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-moyenne"> <span class="dot dot-moyenne"></span> Moyenne <span class="filter-count" id="cnt-moyenne">—</span></label>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Sources</div>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-justwatch"> 📺 JustWatch <span class="filter-count" id="cnt-jw">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-youtube"> 🎬 YouTube <span class="filter-count" id="cnt-yt">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-epg"> 📡 EPG TV <span class="filter-count" id="cnt-epg">—</span></label>
+      <label class="filter-option"><input type="checkbox" checked onchange="applyFilters()" id="f-rtl9"> 🏷 Quota RTL9 <span class="filter-count" id="cnt-rtl9">—</span></label>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Statut</div>
+      <label class="filter-option"><input type="radio" name="statut" value="all" checked onchange="applyFilters()"> Tous</label>
+      <label class="filter-option"><input type="radio" name="statut" value="ouverte" onchange="applyFilters()"> Ouvertes</label>
+      <label class="filter-option"><input type="radio" name="statut" value="en_cours" onchange="applyFilters()"> En cours</label>
+      <label class="filter-option"><input type="radio" name="statut" value="resolue" onchange="applyFilters()"> Résolues</label>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Programmes</div>
+      <div id="programme-filters"></div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi kpi-critique">
+        <div class="kpi-val" id="kpi-critique">—</div>
+        <div class="kpi-label">Violations critiques</div>
+        <div class="kpi-delta up" id="delta-critique"></div>
+      </div>
+      <div class="kpi kpi-haute">
+        <div class="kpi-val" id="kpi-haute">—</div>
+        <div class="kpi-label">Violations hautes</div>
+      </div>
+      <div class="kpi kpi-moyenne">
+        <div class="kpi-val" id="kpi-moyenne">—</div>
+        <div class="kpi-label">Violations moyennes</div>
+      </div>
+      <div class="kpi kpi-total">
+        <div class="kpi-val" id="kpi-scrapers">—</div>
+        <div class="kpi-label">Scrapers actifs</div>
+        <div class="kpi-delta" id="kpi-contrats" style="color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <!-- Vue label -->
+    <div class="vue-label vendeur" id="vue-label">📤 Vue Distributeur — surveiller vos acheteurs</div>
+
+    <!-- Header liste -->
+    <div class="section-header">
+      <div class="section-title">Violations détectées</div>
+      <input type="text" class="search-box" placeholder="Rechercher programme, plateforme…" oninput="applyFilters()" id="search-input">
+    </div>
+
+    <!-- Liste violations -->
+    <div id="violations-list"></div>
+  </main>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+let allViolations = [];
+let currentVue = 'vendeur';
+
+// ── Données démo ──────────────────────────────────────────────────────────────
+
+const DEMO_VIOLATIONS = [
+  {
+    id: 1, deal_id: "38523", programme: "SCAB VENDOR", severite: "CRITIQUE",
+    type_violation: "Diffusion SVOD hors contrat (EXPLORE autorisé)",
+    description: "SCAB VENDOR détecté sur Netflix France — seul EXPLORE est autorisé en SVOD exclusif jusqu'au 30/11/2026",
+    plateforme: "Netflix", territoire: "France", source: "justwatch",
+    url: "https://www.netflix.com/title/...", statut: "ouverte",
+    created_at: "2026-05-20T09:14:22", vue: "vendeur"
+  },
+  {
+    id: 2, deal_id: "38884", programme: "THE GUEST", severite: "HAUTE",
+    type_violation: "Diffusion SVOD potentiellement hors exclusivité",
+    description: "THE GUEST trouvé sur Prime Video (hors Insomnia Amazon Channel) en France — vérification nécessaire",
+    plateforme: "Prime Video", territoire: "France", source: "justwatch",
+    url: null, statut: "en_cours",
+    created_at: "2026-05-22T14:33:01", vue: "vendeur"
+  },
+  {
+    id: 3, deal_id: "42222", programme: "FEMMES DE LOI S2", severite: "CRITIQUE",
+    type_violation: "quota_depasse",
+    description: "S02E04 diffusé 3 fois sur RTL9 (max contractuel : 2)",
+    plateforme: "RTL9", territoire: "France", source: "rtl9_quota",
+    url: null, statut: "ouverte",
+    created_at: "2026-05-24T07:00:00", vue: "vendeur"
+  },
+  {
+    id: 4, deal_id: "42222", programme: "FEMMES DE LOI S1", severite: "HAUTE",
+    type_violation: "hors_case_horaire",
+    description: "S01E06 diffusé à 20:50 sur RTL9 (case autorisée : 09:00–14:00)",
+    plateforme: "RTL9", territoire: "France", source: "rtl9_quota",
+    url: null, statut: "ouverte",
+    created_at: "2026-05-23T21:05:44", vue: "vendeur"
+  },
+  {
+    id: 5, deal_id: "38446", programme: "SHE THEY US", severite: "MOYENNE",
+    type_violation: "Présence sur YouTube non officielle",
+    description: "SHE THEY US trouvé sur YouTube (canal : 'DocuFreeFrance') — vérifier si upload autorisé",
+    plateforme: "YouTube", territoire: "France", source: "youtube",
+    url: "https://www.youtube.com/watch?v=demo123", statut: "ouverte",
+    created_at: "2026-05-25T11:22:09", vue: "vendeur"
+  },
+  {
+    id: 6, deal_id: "38523", programme: "SCAB VENDOR", severite: "CRITIQUE",
+    type_violation: "Violation exclusivité SVOD par le vendeur",
+    description: "[VUE ACHETEUR] SCAB VENDOR présent sur Tënk (France) alors que vous avez l'exclusivité SVOD via EXPLORE. Le vendeur a potentiellement accordé les mêmes droits à un concurrent.",
+    plateforme: "Tënk", territoire: "France", source: "justwatch",
+    url: null, statut: "ouverte",
+    created_at: "2026-05-21T16:44:33", vue: "acheteur"
+  },
+  {
+    id: 7, deal_id: "38884", programme: "PRIEST", severite: "HAUTE",
+    type_violation: "Violation exclusivité SVOD par le vendeur",
+    description: "[VUE ACHETEUR] PRIEST trouvé sur Crunchyroll France — vérifier si hors fenêtre d'exclusivité INSOMNIA",
+    plateforme: "Crunchyroll", territoire: "France", source: "justwatch",
+    url: null, statut: "ouverte",
+    created_at: "2026-05-19T08:10:12", vue: "acheteur"
+  }
+];
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+async function loadData() {
+  try {
+    const [vResp, sResp] = await Promise.all([
+      fetch(`${API_BASE}/violations`),
+      fetch(`${API_BASE}/stats`),
+    ]);
+    if (!vResp.ok) throw new Error('API offline');
+    const vData = await vResp.json();
+    const sData = await sResp.json();
+    allViolations = vData.alertes || [];
+    updateKPIs(vData, sData);
+    document.getElementById('last-scan-label').textContent = 'Connecté à l\'API';
+  } catch {
+    allViolations = DEMO_VIOLATIONS;
+    const crit = allViolations.filter(v => v.severite === 'CRITIQUE').length;
+    const haute = allViolations.filter(v => v.severite === 'HAUTE').length;
+    const moy = allViolations.filter(v => v.severite === 'MOYENNE').length;
+    document.getElementById('kpi-critique').textContent = crit;
+    document.getElementById('kpi-haute').textContent = haute;
+    document.getElementById('kpi-moyenne').textContent = moy;
+    document.getElementById('kpi-scrapers').textContent = '12';
+    document.getElementById('kpi-contrats').textContent = '4 contrats';
+    document.getElementById('last-scan-label').textContent = 'Mode démo';
+  }
+  buildProgrammeFilters();
+  applyFilters();
+}
+
+function updateKPIs(vData, sData) {
+  document.getElementById('kpi-critique').textContent = vData.critiques;
+  document.getElementById('kpi-haute').textContent = vData.hautes;
+  document.getElementById('kpi-moyenne').textContent = vData.moyennes;
+  document.getElementById('kpi-scrapers').textContent = sData.scrapers_actifs;
+  document.getElementById('kpi-contrats').textContent = `${sData.contrats_actifs} contrats`;
+}
+
+// ── Vue switch ────────────────────────────────────────────────────────────────
+
+function setVue(vue) {
+  currentVue = vue;
+  document.getElementById('btn-vendeur').className = `vue-btn ${vue === 'vendeur' ? 'active' : ''}`;
+  document.getElementById('btn-acheteur').className = `vue-btn ${vue === 'acheteur' ? 'active' : ''}`;
+  const label = document.getElementById('vue-label');
+  if (vue === 'vendeur') {
+    label.className = 'vue-label vendeur';
+    label.textContent = '📤 Vue Distributeur — surveiller vos acheteurs';
+  } else {
+    label.className = 'vue-label acheteur';
+    label.textContent = '📥 Vue Acheteur — détecter les violations de vos vendeurs';
+  }
+  applyFilters();
+}
+
+// ── Filtres ───────────────────────────────────────────────────────────────────
+
+function buildProgrammeFilters() {
+  const progs = [...new Set(allViolations.map(v => v.programme))].sort();
+  const el = document.getElementById('programme-filters');
+  el.innerHTML = progs.map(p => `
+    <label class="filter-option">
+      <input type="checkbox" checked onchange="applyFilters()" class="f-prog" data-prog="${p}">
+      ${p.length > 18 ? p.substring(0, 16) + '…' : p}
+    </label>
+  `).join('');
+}
+
+function applyFilters() {
+  const severites = [];
+  if (document.getElementById('f-critique')?.checked) severites.push('CRITIQUE');
+  if (document.getElementById('f-haute')?.checked) severites.push('HAUTE');
+  if (document.getElementById('f-moyenne')?.checked) severites.push('MOYENNE');
+
+  const sources = [];
+  if (document.getElementById('f-justwatch')?.checked) sources.push('justwatch');
+  if (document.getElementById('f-youtube')?.checked) sources.push('youtube');
+  if (document.getElementById('f-epg')?.checked) sources.push('epg_free', 'epg_pay');
+  if (document.getElementById('f-rtl9')?.checked) sources.push('rtl9_quota');
+
+  const statut = document.querySelector('input[name="statut"]:checked')?.value || 'all';
+  const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
+
+  const activeProg = [...document.querySelectorAll('.f-prog:checked')].map(el => el.dataset.prog);
+
+  const filtered = allViolations.filter(v => {
+    if (v.vue && v.vue !== currentVue) return false;
+    if (!severites.includes(v.severite)) return false;
+    if (!sources.includes(v.source)) return false;
+    if (statut !== 'all' && v.statut !== statut) return false;
+    if (!activeProg.includes(v.programme)) return false;
+    if (search && !v.programme.toLowerCase().includes(search) && !v.plateforme?.toLowerCase().includes(search) && !v.description.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  renderViolations(filtered);
+  updateCounts(filtered);
+}
+
+function updateCounts(filtered) {
+  document.getElementById('cnt-all').textContent = filtered.length;
+  document.getElementById('cnt-critique').textContent = filtered.filter(v => v.severite === 'CRITIQUE').length;
+  document.getElementById('cnt-haute').textContent = filtered.filter(v => v.severite === 'HAUTE').length;
+  document.getElementById('cnt-moyenne').textContent = filtered.filter(v => v.severite === 'MOYENNE').length;
+  document.getElementById('cnt-jw').textContent = filtered.filter(v => v.source === 'justwatch').length;
+  document.getElementById('cnt-yt').textContent = filtered.filter(v => v.source === 'youtube').length;
+  document.getElementById('cnt-epg').textContent = filtered.filter(v => ['epg_free','epg_pay'].includes(v.source)).length;
+  document.getElementById('cnt-rtl9').textContent = filtered.filter(v => v.source === 'rtl9_quota').length;
+}
+
+// ── Rendu violations ──────────────────────────────────────────────────────────
+
+function renderViolations(list) {
+  const el = document.getElementById('violations-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><div>Aucune violation détectée avec ces filtres</div></div>';
+    return;
+  }
+
+  el.innerHTML = list.map(v => `
+    <div class="violation-card ${v.severite.toLowerCase()}" onclick="toggleDetail(${v.id})">
+      <div class="vc-header">
+        <span class="badge badge-${v.severite.toLowerCase()}">${v.severite}</span>
+        <div class="vc-title">${v.programme}</div>
+        <span class="src-icon src-${v.source === 'justwatch' ? 'jw' : v.source === 'youtube' ? 'yt' : v.source === 'rtl9_quota' ? 'rtl9' : 'epg'}">${srcLabel(v.source)}</span>
+      </div>
+      <div class="vc-meta">
+        <span class="vc-chip highlight">Deal ${v.deal_id}</span>
+        ${v.plateforme ? `<span class="vc-chip highlight">📡 ${v.plateforme}</span>` : ''}
+        ${v.territoire ? `<span class="vc-chip">🌍 ${v.territoire}</span>` : ''}
+        <span class="vc-chip">${v.type_violation}</span>
+      </div>
+      <div class="vc-desc">${v.description}</div>
+      <div class="vc-actions">
+        ${v.url ? `<a href="${v.url}" target="_blank" style="text-decoration:none"><button class="vc-btn">🔗 Voir</button></a>` : ''}
+        <button class="vc-btn" onclick="updateStatut(event,${v.id},'en_cours')">⏳ En cours</button>
+        <button class="vc-btn" onclick="updateStatut(event,${v.id},'resolue')">✅ Résolu</button>
+        <button class="vc-btn danger" onclick="updateStatut(event,${v.id},'ignoree')">✕ Ignorer</button>
+        <span class="vc-time">${formatDate(v.created_at)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function srcLabel(src) {
+  return { justwatch: 'JustWatch', youtube: 'YouTube', epg_free: 'EPG', epg_pay: 'EPG Pay', rtl9_quota: 'RTL9 Quota' }[src] || src;
+}
+
+function formatDate(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function toggleDetail(id) {
+  // Expansion future
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+async function updateStatut(e, id, statut) {
+  e.stopPropagation();
+  try {
+    await fetch(`${API_BASE}/violations/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statut })
+    });
+  } catch {}
+  const v = allViolations.find(x => x.id === id);
+  if (v) v.statut = statut;
+  applyFilters();
+}
+
+async function runScan() {
+  const btn = document.querySelector('.btn-scan');
+  btn.innerHTML = '<span class="spinner"></span> Scan en cours…';
+  btn.disabled = true;
+  try {
+    await fetch(`${API_BASE}/scrapers/run?vue=${currentVue}`, { method: 'POST' });
+    document.getElementById('last-scan-label').textContent = 'Scan lancé — résultats dans 30s';
+    setTimeout(() => loadData(), 5000);
+  } catch {
+    document.getElementById('last-scan-label').textContent = 'API hors ligne';
+  }
+  setTimeout(() => {
+    btn.innerHTML = '🔍 Scanner';
+    btn.disabled = false;
+  }, 3000);
+}
+
+function exportCSV() {
+  const visible = allViolations.filter(v => !v.vue || v.vue === currentVue);
+  const headers = ['ID', 'Deal', 'Programme', 'Sévérité', 'Type', 'Description', 'Plateforme', 'Territoire', 'URL', 'Statut', 'Date'];
+  const rows = visible.map(v => [v.id, v.deal_id, v.programme, v.severite, v.type_violation, `"${v.description}"`, v.plateforme || '', v.territoire || '', v.url || '', v.statut, v.created_at]);
+  const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `violations_rights_monitor_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+loadData();
+</script>
+</body>
+</html>
